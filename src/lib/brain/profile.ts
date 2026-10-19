@@ -73,10 +73,17 @@ export const profileSchema = z.object({
   consistencyChecklist: z.array(z.object({ item: z.string().max(120), rule: z.string().max(1000) })).max(40),
 });
 
+/** JSON with sorted keys – jsonb storage doesn't preserve key order. */
+export function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") return `{${Object.keys(v).sort().filter((k) => (v as Record<string, unknown>)[k] !== undefined).map((k) => `${JSON.stringify(k)}:${stableJson((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  return JSON.stringify(v ?? null);
+}
+
 /** Which profile fields differ between two versions. */
 export function changedFields(a: CharacterProfile | null, b: CharacterProfile): (keyof CharacterProfile)[] {
   if (!a) return PROFILE_FIELDS.map((f) => f.key);
-  return PROFILE_FIELDS.map((f) => f.key).filter((k) => JSON.stringify(a[k] ?? null) !== JSON.stringify(b[k] ?? null));
+  return PROFILE_FIELDS.map((f) => f.key).filter((k) => stableJson(a[k] ?? null) !== stableJson(b[k] ?? null));
 }
 
 /** Render a profile as canon text for agents. Empty fields are omitted, never invented. */

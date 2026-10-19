@@ -89,7 +89,7 @@ export function fakeFor(schema: Json, prompt: string): unknown {
   if ("overallScore" in props) return { overallScore: 0.82, identityDrift: false, items: [{ item: "Colours", score: 0.9, note: "match" }], summary: "Close" };
   if ("items" in props && "category" in ((props.items as Json).items as Json).properties!) {
     const n = Number(prompt.match(/exactly (\d+)/)?.[1] ?? 2);
-    return { items: Array.from({ length: n }, (_, i) => ({ id: `g${i + 1}`, name: `Item ${i + 1}`, category: "collectible", description: "A shell", characters: [], prompt: "a shell", notes: "" })) };
+    return { items: Array.from({ length: n }, (_, i) => ({ id: `g${i + 1}`, name: `Item ${i + 1}`, category: "collectible", description: "A shell", characters: cast.slice(0, 1), prompt: "a shell", notes: "" })) };
   }
   return generic(schema, "x");
 }
