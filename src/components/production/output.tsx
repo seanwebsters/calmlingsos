@@ -22,7 +22,7 @@ export function StructuredView({ value, depth = 0 }: { value: unknown; depth?: n
   return (
     <dl className={depth ? "space-y-1.5" : "space-y-3"}>
       {entries.map(([k, v]) => (
-        <div key={k} className={typeof v === "object" && v !== null ? "" : "grid grid-cols-[160px_1fr] gap-3"}>
+        <div key={k} className={typeof v === "object" && v !== null ? "" : "grid grid-cols-[160px_minmax(0,1fr)] gap-3"}>
           <dt className="text-[11px] uppercase tracking-wider text-mist-500">{titleCase(k.replace(/([A-Z])/g, " $1"))}</dt>
           <dd className="text-sm">
             <StructuredView value={v} depth={depth + 1} />

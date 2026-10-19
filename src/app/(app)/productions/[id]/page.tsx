@@ -98,7 +98,7 @@ export default async function ProductionPage({ params, searchParams }: { params:
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         <div className="space-y-2">
           <div className="label mb-2">Pipeline</div>
           {steps.map((s, i) => <StepCard key={s.id} step={s} index={i} active={s.key === focus?.key} productionId={id} canRun={canRun && p.status !== "planning"} canApprove={canApprove} />)}

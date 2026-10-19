@@ -17,7 +17,7 @@ export const S = {
           templateKey: z.string().describe("One of the available workflow template keys"),
           title: z.string(),
           characters: z.array(characterRef),
-          brief: z.record(z.string(), z.unknown()).describe("Brief fields for that template"),
+          briefJson: z.string().describe("The brief fields for that template, as a JSON object string"),
           rationale: z.string(),
         }),
       )

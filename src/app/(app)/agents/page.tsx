@@ -74,7 +74,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         </Card>
       )}
       {tab === "workflows" && tpl && (
-        <div className="grid gap-6 xl:grid-cols-[260px_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
           <Card className="p-3">
             {templates.map((t) => (
               <Link key={t.key} href={`/agents?tab=workflows&key=${t.key}`} className={cn("block rounded-lg px-3 py-2 text-sm", t.key === tpl.key ? "bg-calm-400/10 text-white" : "text-mist-300 hover:bg-white/[0.03]")}>
@@ -83,8 +83,8 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
               </Link>
             ))}
           </Card>
-          <Card>
-            <SectionTitle title={tpl.name} sub={tpl.description} />
+          <Card className="min-w-0">
+            <SectionTitle title={tpl.name} sub={<span className="block break-words">{tpl.description}</span>} />
             <WorkflowBuilder key={tpl.key} template={{ ...tpl, steps: tpl.steps.map((s) => ({ ...s, config: s.config ?? {} })) }} stepTypes={Object.values(STEP_TYPES)} agents={AGENTS.map((a) => ({ key: a.key, name: a.name }))} canEdit={can(viewer.role, "workflow:edit")} />
           </Card>
         </div>

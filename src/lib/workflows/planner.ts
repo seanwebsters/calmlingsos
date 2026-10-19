@@ -57,7 +57,15 @@ export async function planFromCommand(viewer: Viewer, command: string): Promise<
     schema: S.plan,
     pack,
   });
-  const productions: PlannedProduction[] = res.data.productions.map((p) => {
+  const productions: PlannedProduction[] = res.data.productions.map((raw) => {
+    let parsedBrief: Record<string, unknown> = {};
+    try {
+      const v = JSON.parse(raw.briefJson);
+      if (v && typeof v === "object" && !Array.isArray(v)) parsedBrief = v;
+    } catch {
+      parsedBrief = {};
+    }
+    const p = { ...raw, brief: parsedBrief };
     const tpl = templates.find((t) => t.key === p.templateKey) ?? templates[0];
     const ids: string[] = [];
     const unknown: string[] = [];

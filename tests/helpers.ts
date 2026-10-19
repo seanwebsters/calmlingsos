@@ -12,7 +12,8 @@ import sharp from "sharp";
 
 export function setupEnv() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "calmlings-test-"));
-  process.env.DATABASE_URL = "pglite:memory://";
+  // TEST_DATABASE_URL=postgres://… runs the suite against a real PostgreSQL server.
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? "pglite:memory://";
   process.env.DATA_DIR = dir;
   process.env.CREDENTIALS_ENCRYPTION_KEY = "0".repeat(64);
   for (const k of ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "FAL_KEY", "ELEVENLABS_API_KEY"]) delete process.env[k];
@@ -22,6 +23,13 @@ export function setupEnv() {
 export async function freshDb() {
   const { resetDb, getDb } = await import("@/db");
   await resetDb();
+  if (process.env.TEST_DATABASE_URL) {
+    const { Client } = await import("pg");
+    const c = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await c.connect();
+    await c.query("drop schema if exists public cascade; create schema public; drop schema if exists drizzle cascade;");
+    await c.end();
+  }
   const { setStorage } = await import("@/lib/storage");
   setStorage(undefined);
   return getDb();
@@ -71,6 +79,10 @@ export function fakeFor(schema: Json, prompt: string): unknown {
   const codes = [...prompt.matchAll(/(CHR-[A-Z0-9]+) = /g)].map((m) => m[1]);
   const conceptIds = [...new Set([...prompt.matchAll(/"id": "(c\d+)"/g)].map((m) => m[1]))];
   const cast = codes.length ? codes : [];
+  if ("productions" in props && "canonGaps" in props) {
+    const cast = [...new Set([...prompt.matchAll(/\((CHR-[A-Z0-9]+)/g)].map((m) => m[1]))];
+    return { summary: "Two productions", productions: [{ templateKey: "social_video", title: "Blue TikToks", characters: [...cast.slice(0, 1), "Ghosty"], briefJson: JSON.stringify({ theme: "Rainy day calm", conceptCount: 5, produceCount: 5, platform: "tiktok" }), rationale: "Social" }, { templateKey: "product_range", title: "Plush", characters: cast.slice(0, 1), briefJson: "not json", rationale: "Product" }], questions: ["Which week?"], canonGaps: [] };
+  }
   if ("concepts" in props && !("name" in props)) {
     const n = Number(prompt.match(/exactly (\d+) DISTINCT/)?.[1] ?? 3);
     return { concepts: Array.from({ length: n }, (_, i) => ({ id: `c${i + 1}`, title: `Concept ${i + 1}`, hook: "A tiny sigh", logline: "A calm moment", emotionalMessage: "It's okay to pause", characters: cast.slice(0, 1), format: "sketch", whyItWorks: "Relatable", canonQuestions: [] })) };

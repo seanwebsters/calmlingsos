@@ -67,3 +67,8 @@ body {
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   }
 }
+
+/* Grid children may shrink below their content width (prevents horizontal overflow). */
+.grid > * {
+  min-width: 0;
+}
