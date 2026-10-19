@@ -10,7 +10,7 @@
  *    provider, model, prompt version, parameters, cost, parents).
  */
 
-import { boolean, index, integer, jsonb, pgTable, real, text, timestamp, uniqueIndex, primaryKey, doublePrecision } from "drizzle-orm/pg-core";
+import { customType, boolean, index, integer, jsonb, pgTable, real, text, timestamp, uniqueIndex, primaryKey, doublePrecision } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const created = () => ts("created_at").notNull().defaultNow();
@@ -932,3 +932,17 @@ export const embeddings = pgTable(
   (t) => [index("embeddings_source").on(t.orgId, t.sourceType, t.sourceId)],
 );
 
+
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType: () => "bytea",
+  fromDriver: (v) => (Buffer.isBuffer(v) ? v : Buffer.from(v)),
+});
+
+/** File bodies when STORAGE_BACKEND=db (serverless hosts without object storage). */
+export const storedFiles = pgTable("stored_files", {
+  key: text("key").primaryKey(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  data: bytea("data").notNull(),
+  createdAt: created(),
+});

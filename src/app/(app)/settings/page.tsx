@@ -42,9 +42,9 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <Card>
             <SectionTitle title="Database, storage & jobs" />
             <KeyVal k="Database" v={<>{dbKind} <Badge tone={dbKind === "PostgreSQL" ? "ok" : "warn"}>{dbKind === "PostgreSQL" ? "production-ready" : "local"}</Badge></>} />
-            <KeyVal k="Object storage" v={env.storageBackend === "s3" ? `S3-compatible (${env.s3.bucket})` : `Local disk (${env.dataDir})`} />
+            <KeyVal k="Object storage" v={env.storageBackend === "s3" ? `S3-compatible (${env.s3.bucket})` : env.storageBackend === "db" ? "Inside the database" : `Local disk (${env.dataDir})`} />
             <KeyVal k="Asset URLs" v="Short-lived signed URLs" />
-            <KeyVal k="Background worker" v={env.inProcessWorker ? "In-process (plus optional `npm run worker`)" : "External `npm run worker` processes"} />
+            <KeyVal k="Background worker" v={env.inProcessWorker ? "In-process (plus optional `npm run worker`)" : env.serverless ? "Runs in short bursts while the studio is open (/api/jobs/tick)" : "External `npm run worker` processes"} />
             <KeyVal k="Malware scanning" v={env.clamavAddress ? `ClamAV at ${env.clamavAddress}` : "Not configured (uploads are content-validated only)"} />
             <KeyVal k="Analytics" v="CSV import · platform connectors not configured" />
             <KeyVal k="Search" v="Anthropic web search (when connected) for research agents" />

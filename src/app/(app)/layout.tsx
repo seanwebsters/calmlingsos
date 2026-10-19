@@ -5,6 +5,8 @@ import { getViewer } from "@/lib/auth/session";
 import { needsSetup } from "@/lib/org";
 import { Sidebar, MobileNav } from "@/components/shell/sidebar";
 import { SearchBox } from "@/components/shell/search";
+import { JobPump } from "@/components/client/job-pump";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [a] = await db.select({ n: count() }).from(schema.approvals).where(and(eq(schema.approvals.orgId, viewer.orgId), eq(schema.approvals.status, "pending")));
   return (
     <div className="flex min-h-screen">
+      {!env.inProcessWorker && <JobPump />}
       <Sidebar approvals={a?.n ?? 0} orgName={viewer.orgName} userName={viewer.name} role={viewer.role} />
       <div className="min-w-0 flex-1">
         <MobileNav />

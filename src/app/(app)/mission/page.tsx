@@ -6,7 +6,7 @@ import { deploymentWarnings } from "@/lib/env";
 import { AGENT_BY_KEY } from "@/lib/agents/definitions";
 import { CommandBar } from "@/components/client/command-bar";
 import { LiveRefresh } from "@/components/client/live";
-import { Badge, Card, Empty, Placeholder, Progress, SectionTitle, Stat, Status } from "@/components/ui";
+import { Badge, Card, Empty, Notice, Placeholder, Progress, SectionTitle, Stat, Status } from "@/components/ui";
 import { timeAgo, usd } from "@/lib/cn";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,7 @@ export default async function Mission() {
         </div>
       </section>
 
+      {warnings.filter((w) => w.startsWith("TEMPORARY DATABASE")).map((w) => <Notice key={w} tone="warn" title="This deployment doesn't keep data yet">{w.replace("TEMPORARY DATABASE: ", "")}</Notice>)}
       {warnings.length > 0 && (
         <details className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2 text-sm text-mist-400">
           <summary className="cursor-pointer text-mist-300">Deployment notes ({warnings.length})</summary>

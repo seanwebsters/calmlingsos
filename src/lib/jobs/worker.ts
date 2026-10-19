@@ -44,10 +44,11 @@ export async function processJob(job: JobRow): Promise<void> {
 }
 
 /** Process jobs until the queue is empty (tests, scripts). */
-export async function drainJobs(opts: { maxJobs?: number; types?: string[] } = {}): Promise<number> {
+export async function drainJobs(opts: { maxJobs?: number; types?: string[]; timeBudgetMs?: number } = {}): Promise<number> {
   const workerId = `drain-${process.pid}`;
+  const deadline = opts.timeBudgetMs ? Date.now() + opts.timeBudgetMs : Infinity;
   let n = 0;
-  while (n < (opts.maxJobs ?? 500)) {
+  while (n < (opts.maxJobs ?? 500) && Date.now() < deadline) {
     const job = await claimNext(workerId, opts.types);
     if (!job) break;
     await processJob(job);

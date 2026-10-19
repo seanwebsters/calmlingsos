@@ -3,6 +3,7 @@ import { getDb, schema } from "@/db";
 import { getViewer } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /** Server-sent events: emits "change" whenever the watched scope changes. */
 export async function GET(req: Request) {
@@ -40,7 +41,15 @@ export async function GET(req: Request) {
           controller.close();
         }
       }, 1500);
+      // Close before serverless time limits; EventSource reconnects automatically.
+      const lifetime = setTimeout(() => {
+        clearInterval(timer);
+        try {
+          controller.close();
+        } catch {}
+      }, 50_000);
       req.signal.addEventListener("abort", () => {
+        clearTimeout(lifetime);
         clearInterval(timer);
         try {
           controller.close();

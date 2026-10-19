@@ -73,13 +73,31 @@ export async function cancelJobsFor(key: string, value: string, tx?: Tx) {
     .where(and(eq(schema.jobs.status, "queued"), sql`${schema.jobs.payload} ->> ${key} = ${value}`));
 }
 
-/** Jobs left "running" by a crashed process go back to the queue. */
+/**
+ * Jobs left "running" by a crashed process (or a serverless function that hit
+ * its time limit) go back to the queue, and their steps become runnable again.
+ */
 export async function recoverStaleJobs(olderThanMs = 15 * 60_000) {
   const db = await getDb();
-  await db
+  const recovered = await db
     .update(schema.jobs)
     .set({ status: "queued", lockedBy: null, updatedAt: new Date() })
-    .where(and(eq(schema.jobs.status, "running"), lt(schema.jobs.lockedAt, new Date(Date.now() - olderThanMs))));
+    .where(and(eq(schema.jobs.status, "running"), lt(schema.jobs.lockedAt, new Date(Date.now() - olderThanMs))))
+    .returning({ type: schema.jobs.type, payload: schema.jobs.payload });
+  const stepIds = recovered.filter((j) => j.type === "run_step").map((j) => String(j.payload.stepId));
+  if (stepIds.length) {
+    await db
+      .update(schema.productionSteps)
+      .set({ status: "queued", error: "Resumed after the previous attempt was interrupted.", updatedAt: new Date() })
+      .where(and(inArray(schema.productionSteps.id, stepIds), eq(schema.productionSteps.status, "running")));
+  }
+  return recovered.length;
+}
+
+export async function pendingJobCount(orgId: string): Promise<number> {
+  const db = await getDb();
+  const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.orgId, orgId), inArray(schema.jobs.status, ["queued", "running"])));
+  return r?.n ?? 0;
 }
 
 export async function jobCounts(orgId: string) {

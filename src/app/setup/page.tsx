@@ -24,7 +24,7 @@ export default async function SetupPage() {
           {deploymentWarnings().length > 0 && (
             <div className="mt-8 space-y-2 text-xs text-mist-400">
               {deploymentWarnings().map((w) => (
-                <div key={w} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">{w}</div>
+                <div key={w} className={w.startsWith("TEMPORARY DATABASE") ? "rounded-lg border border-warn/30 bg-warn/[0.07] px-3 py-2 text-warn" : "rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2"}>{w}</div>
               ))}
             </div>
           )}

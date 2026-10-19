@@ -26,7 +26,17 @@ npm run dev                     # http://localhost:3000 → first-run setup wiza
 
 Migrations run automatically at startup (`npm run db:migrate` runs them manually). The background worker runs inside the web process by default. For larger deployments, set `IN_PROCESS_WORKER=off` and run one or more `npm run worker` processes.
 
-### Production deployment
+### Deploying on Vercel
+
+The app adapts to Vercel automatically (no `vercel.json` needed):
+
+- **Database:** set `DATABASE_URL` (or `POSTGRES_URL`) to a PostgreSQL database, e.g. Vercel → Storage → Neon Postgres, then redeploy. **Without it**, Vercel runs a temporary built-in database in `/tmp`. Everything resets on restart, and each serverless instance has its own copy (you may see the setup page again). Mission Control shows a warning while this is the case.
+- **Files:** stored inside the database unless you configure S3-compatible storage (`S3_*` variables, e.g. Cloudflare R2).
+- **Background jobs:** there's no long-lived worker, so jobs run in short bursts via `/api/jobs/tick` while someone has the studio open. To keep work moving when nobody is around, call `GET /api/jobs/tick` from a scheduler with `Authorization: Bearer $CRON_SECRET`.
+- **Limits:** Vercel caps request bodies at about 4.5 MB, so upload large references in smaller batches or use Railway/Docker. Long video jobs are more reliable on a host with a persistent worker.
+- Also set `APP_SECRET` and `CREDENTIALS_ENCRYPTION_KEY`.
+
+### Production deployment (Docker / Railway)
 
 - `Dockerfile` and `railway.json` are included. Mount a persistent volume at `/data`.
 - Set `DATABASE_URL` (managed PostgreSQL), `APP_SECRET`, `CREDENTIALS_ENCRYPTION_KEY`, and optionally `STORAGE_BACKEND=s3` plus the `S3_*` variables.

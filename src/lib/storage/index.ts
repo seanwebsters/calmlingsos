@@ -3,6 +3,7 @@
  * (`orgs/<orgId>/…`) so tenants can never address each other's files.
  *  - local: files under DATA_DIR/storage, served through short-lived HMAC-signed URLs
  *  - s3:    any S3-compatible store (AWS S3, Cloudflare R2, MinIO…) with presigned GETs
+ *  - db:    PostgreSQL bytea (serverless hosts without object storage), session-authenticated
  */
 import "server-only";
 import fs from "node:fs";
@@ -13,7 +14,7 @@ import { hmac, safeEqual } from "@/lib/crypto";
 import { IntegrationRequiredError } from "@/lib/errors";
 
 export interface StorageProvider {
-  readonly name: "local" | "s3";
+  readonly name: "local" | "s3" | "db";
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   remove(key: string): Promise<void>;
@@ -111,10 +112,43 @@ class S3Storage implements StorageProvider {
   }
 }
 
+/**
+ * Files stored in PostgreSQL (bytea). Used on serverless hosts without object
+ * storage. Served through /api/files/db, which requires a signed-in member
+ * of the owning organisation (no signing secret needed).
+ */
+class DbStorage implements StorageProvider {
+  readonly name = "db" as const;
+  private async db() {
+    const { getDb, schema } = await import("@/db");
+    return { db: await getDb(), t: schema.storedFiles };
+  }
+  async put(key: string, data: Buffer, contentType: string) {
+    const { db, t } = await this.db();
+    await db.insert(t).values({ key, contentType, sizeBytes: data.length, data }).onConflictDoUpdate({ target: t.key, set: { contentType, sizeBytes: data.length, data } });
+  }
+  async get(key: string) {
+    const { db, t } = await this.db();
+    const { eq } = await import("drizzle-orm");
+    const [row] = await db.select().from(t).where(eq(t.key, key));
+    return row ? row.data : null;
+  }
+  async remove(key: string) {
+    const { db, t } = await this.db();
+    const { eq } = await import("drizzle-orm");
+    await db.delete(t).where(eq(t.key, key));
+  }
+  async signedUrl(key: string, opts: { ttlSeconds?: number; download?: string } = {}) {
+    const q = new URLSearchParams({ key });
+    if (opts.download) q.set("dl", opts.download);
+    return `/api/files/db?${q.toString()}`;
+  }
+}
+
 const g = globalThis as unknown as { __calmlingsStorage?: StorageProvider };
 
 export function getStorage(): StorageProvider {
-  if (!g.__calmlingsStorage) g.__calmlingsStorage = env.storageBackend === "s3" ? new S3Storage() : new LocalStorage();
+  if (!g.__calmlingsStorage) g.__calmlingsStorage = env.storageBackend === "s3" ? new S3Storage() : env.storageBackend === "db" ? new DbStorage() : new LocalStorage();
   return g.__calmlingsStorage;
 }
 
