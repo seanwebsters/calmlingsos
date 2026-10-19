@@ -12,13 +12,19 @@ const snap = async (page: import("@playwright/test").Page, name: string) => {
 test("setup → character → official reference → approved canon → production plan → honest integration block", async ({ page }) => {
   const email = `cd-${Date.now()}@studio.test`;
   await page.goto("/");
-  await expect(page).toHaveURL(/setup/);
-  await page.fill('input[name="orgName"]', "Calmlings Studio");
-  await page.fill('input[name="name"]', "Creative Director");
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', "correct-horse-battery");
-  await page.click("text=Create studio");
-  await expect(page).toHaveURL(/settings/);
+  if (page.url().includes("/setup")) {
+    // AUTH_MODE=required: first-run setup creates the owner account.
+    await page.fill('input[name="orgName"]', "Calmlings Studio");
+    await page.fill('input[name="name"]', "Creative Director");
+    await page.fill('input[name="email"]', email);
+    await page.fill('input[name="password"]', "correct-horse-battery");
+    await page.click("text=Create studio");
+    await expect(page).toHaveURL(/settings/);
+  } else {
+    // AUTH_MODE=open (default): no sign-in – straight into the studio.
+    await expect(page).toHaveURL(/mission/);
+    await page.goto("/settings");
+  }
   await expect(page.getByText("AI providers")).toBeVisible();
   await expect(page.getByText("not connected").first()).toBeVisible();
   await snap(page, "01-settings");

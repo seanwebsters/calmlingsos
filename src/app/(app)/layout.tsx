@@ -11,7 +11,7 @@ import { env } from "@/lib/env";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  if (await needsSetup()) redirect("/setup");
+  if (env.authMode !== "open" && (await needsSetup())) redirect("/setup");
   const viewer = await getViewer();
   if (!viewer) redirect("/login");
   const db = await getDb();
@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen">
       {!env.inProcessWorker && <JobPump />}
-      <Sidebar approvals={a?.n ?? 0} orgName={viewer.orgName} userName={viewer.name} role={viewer.role} />
+      <Sidebar signIn={env.authMode !== "open"} approvals={a?.n ?? 0} orgName={viewer.orgName} userName={viewer.name} role={viewer.role} />
       <div className="min-w-0 flex-1">
         <MobileNav />
         <div className="sticky top-0 z-20 flex items-center justify-end gap-3 border-b border-white/[0.04] bg-ink-950/60 px-6 py-2.5 backdrop-blur lg:px-10">

@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { needsSetup } from "@/lib/org";
+import { env } from "@/lib/env";
 import { LoginForm } from "./form";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
+  if (env.authMode === "open") redirect("/mission");
   if (await needsSetup()) redirect("/setup");
   return (
     <main className="flex min-h-screen items-center justify-center px-6">

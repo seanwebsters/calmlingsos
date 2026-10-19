@@ -56,6 +56,12 @@ export const env = {
   /** Optional ClamAV daemon for malware scanning of uploads (host:port). */
   clamavAddress: opt("CLAMAV_ADDRESS"),
 
+  /**
+   * Sign-in: "open" (default) – no login; everyone who can reach the app acts as the
+   * studio owner. "required" – email/password sign-in with roles.
+   */
+  authMode: (opt("AUTH_MODE") === "required" ? "required" : "open") as "open" | "required",
+
   /** Run the background worker inside the web process (default on). */
   inProcessWorker: opt("IN_PROCESS_WORKER") ? opt("IN_PROCESS_WORKER") !== "off" : !serverless,
   /** Secret for /api/jobs/tick when called by a scheduler (Authorization: Bearer …). */
@@ -88,6 +94,7 @@ export function deploymentWarnings(): string[] {
   if (env.storageBackend === "local" && isProd) w.push("Files are stored on local disk. Mount a persistent volume at DATA_DIR or configure S3-compatible storage.");
   if (env.storageBackend === "db") w.push("Files are stored inside the database (fine to start; configure S3-compatible storage for large libraries).");
   if (serverless) w.push("Serverless host: uploads are limited to ~4 MB per request and background jobs run in short bursts while the app is open. Long video generation is more reliable on a host with a persistent worker (Railway/Docker).");
+  if (env.authMode === "open") w.push("Sign-in is off (AUTH_MODE=open): anyone who can reach this URL has full owner access. Set AUTH_MODE=required to require sign-in.");
   if (isProd && !opt("APP_SECRET")) w.push("APP_SECRET is not set – a temporary secret is in use. Set APP_SECRET (openssl rand -hex 32).");
   if (!env.credentialsKey) w.push("CREDENTIALS_ENCRYPTION_KEY is not set, so provider keys can only be supplied through environment variables.");
   if (!env.clamavAddress) w.push("No malware scanner is configured (CLAMAV_ADDRESS). Uploads are type-validated but not virus-scanned.");

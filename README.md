@@ -18,7 +18,7 @@ cp .env.example .env.local      # set DATABASE_URL, APP_SECRET, CREDENTIALS_ENCR
 npm run dev                     # http://localhost:3000 → first-run setup wizard
 ```
 
-1. **Setup wizard** (`/setup`): create the studio workspace and the owner account.
+1. **No sign-in by default** (`AUTH_MODE=open`): the app opens straight into Mission Control and everyone who can reach it acts as the studio owner. The studio is created automatically on first visit. Set `AUTH_MODE=required` to turn on email/password sign-in with roles; you then create the studio and owner account in the setup wizard (`/setup`). Keep a deployment in open mode private, because anyone with the URL has full access.
 2. **Settings & Integrations**: connect providers. Keys come from environment variables or are stored AES-256-GCM encrypted (requires `CREDENTIALS_ENCRYPTION_KEY`). Use **Test connection** to see which models your account can actually reach.
 3. **Approve providers for proprietary references.** Reference *files* are never sent to a provider until you tick "Allow proprietary reference files" for it, after reviewing its terms. This is off by default. It is required for image-guided generation, reference analysis and consistency review.
 4. **Character Universe**: create characters. **Reference Library**: upload official material, designate Official Masters, then approve each character's profile version.

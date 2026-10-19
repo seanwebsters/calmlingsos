@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { needsSetup } from "@/lib/org";
-import { deploymentWarnings } from "@/lib/env";
+import { deploymentWarnings, env } from "@/lib/env";
 import { SetupForm } from "./form";
 
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
+  if (env.authMode === "open") redirect("/mission");
   if (!(await needsSetup())) redirect("/login");
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">

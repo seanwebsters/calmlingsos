@@ -26,7 +26,7 @@ export const NAV = [
   { n: "16", href: "/settings", label: "Settings & Integrations", icon: Settings },
 ];
 
-export function Sidebar({ approvals, orgName, userName, role }: { approvals: number; orgName: string; userName: string; role: string }) {
+export function Sidebar({ approvals, orgName, userName, role, signIn }: { approvals: number; orgName: string; userName: string; role: string; signIn: boolean }) {
   const path = usePathname();
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-white/[0.05] bg-ink-950/70 backdrop-blur lg:flex">
@@ -61,9 +61,13 @@ export function Sidebar({ approvals, orgName, userName, role }: { approvals: num
         <div className="text-mist-200">{userName}</div>
         <div className="flex items-center justify-between text-mist-500">
           <span>{role.replace("_", " ")}</span>
-          <form action="/api/auth/logout" method="post">
-            <button className="hover:text-mist-200">Sign out</button>
-          </form>
+          {signIn ? (
+            <form action="/api/auth/logout" method="post">
+              <button className="hover:text-mist-200">Sign out</button>
+            </form>
+          ) : (
+            <span title="Sign-in is off (AUTH_MODE=open)">no sign-in</span>
+          )}
         </div>
       </div>
     </aside>

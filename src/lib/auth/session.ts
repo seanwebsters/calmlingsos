@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { and, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { env } from "@/lib/env";
 import { newId } from "@/lib/ids";
@@ -56,7 +56,39 @@ export async function viewerFromToken(token: string | undefined | null): Promise
 
 export async function getViewer(): Promise<Viewer | null> {
   const jar = await cookies();
-  return viewerFromToken(jar.get(SESSION_COOKIE)?.value);
+  const fromSession = await viewerFromToken(jar.get(SESSION_COOKIE)?.value);
+  if (fromSession || env.authMode !== "open") return fromSession;
+  return openModeViewer();
+}
+
+/**
+ * AUTH_MODE=open: no sign-in. Requests act as the owner of the studio, which is
+ * created automatically the first time the app is opened.
+ */
+async function openModeViewer(): Promise<Viewer> {
+  const db = await getDb();
+  const find = async () => {
+    const [r] = await db
+      .select({ u: schema.users, o: schema.organisations, m: schema.memberships })
+      .from(schema.memberships)
+      .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+      .innerJoin(schema.organisations, eq(schema.organisations.id, schema.memberships.orgId))
+      .where(eq(schema.memberships.role, "owner"))
+      .orderBy(asc(schema.memberships.createdAt))
+      .limit(1);
+    return r ? { userId: r.u.id, name: r.u.name, email: r.u.email, orgId: r.o.id, orgName: r.o.name, role: "owner" as Role } : null;
+  };
+  const existing = await find();
+  if (existing) return existing;
+  const { bootstrap } = await import("@/lib/org");
+  try {
+    await bootstrap({ orgName: "Calmlings Studio", name: "Creative Director", email: "studio@calmlings.local", password: randomToken(24) });
+  } catch {
+    // Another request created it at the same time.
+  }
+  const created = await find();
+  if (!created) throw new Error("Could not create the default studio.");
+  return created;
 }
 
 export async function requireViewer(permission?: Permission): Promise<Viewer> {
