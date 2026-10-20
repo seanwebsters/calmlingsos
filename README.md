@@ -58,6 +58,8 @@ The app adapts to Vercel automatically (no `vercel.json` needed):
 | AI gateway | Provider registry, capability discovery, model router, metered calls (cost records + tool invocations), test doubles for automated tests only |
 | Brain | Character versions + Character Lock, canon records (world/lore/brand/production) with DRAFT→official lifecycle, reference engine, context packs, creative decisions, embeddings (optional) |
 | Orchestration | DAG workflow engine: typed step handlers, human gates, conditions, budget guards, per-item idempotent media generation |
+| Agent team | Autonomous missions: the Studio Director delegates to specialists who run their own tool-use loops (canon search, documents, images, canon/production proposals, approval requests) as durable, resumable jobs, with mission budgets |
+| 3D office | Agent HQ renders the team as a live three.js office (React Three Fiber): department pods, desks, status rings, speech bubbles and hand-off animations, with a 2D fallback when WebGL is unavailable |
 
 Details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -86,9 +88,11 @@ Details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - **Game Studio** deterministic tooling: conform to spec, validation of dimensions, transparency, format, naming, size, frames and metadata, the asset browser, collection export bundles, and the sprite-sheet/atlas builder (TexturePacker-style JSON).
 - **Analytics**: CSV import with column aliasing. Missing metrics stay blank. Breakdowns by character, format, theme and platform carry sample-size-capped confidence, and recommendations are observational.
 - **Learning**: every selection, rejection, change request and approval is logged as a creative decision. Rules are injected into future agent context. Repeated corrections are surfaced as suggested rules.
+- **Agent team & 3D office**: give the team a goal from Agent HQ or the command bar ("Hand to the agent team"). The mission page (`/missions/[id]`) shows the task tree, live transcripts, deliverables, spend, and stop/resume/raise-budget controls. Questions the agents ask land in Approvals, and your answer resumes the agent. Without a tool-capable provider (Anthropic or OpenAI), the mission is BLOCKED with the reason.
 - Approvals centre, production calendar, Mission Control (live), and global search (keyword; semantic when an embeddings provider is connected).
 
 ### Needs provider credentials (code paths are implemented and covered by automated tests with test doubles)
+- Agent-team missions: Anthropic or OpenAI (tool use).
 - Natural-language planning (Studio Director) and every writing, evaluation and analysis agent: a text provider.
 - Reference frames, product renders, mockups, key visuals and game assets: an image provider approved for proprietary references.
 - Shot video and concept clips: fal.ai or Google Veo. Image-to-video always starts from an approved or latest frame.

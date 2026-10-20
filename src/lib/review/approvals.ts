@@ -5,7 +5,7 @@ import { newId } from "@/lib/ids";
 
 export interface ApprovalInput {
   orgId: string;
-  kind: "plan" | "step" | "asset" | "character_change" | "canon_change" | "spend" | "outreach" | "publish";
+  kind: "plan" | "mission" | "step" | "asset" | "character_change" | "canon_change" | "spend" | "outreach" | "publish";
   targetType: string;
   targetId: string;
   title: string;

@@ -18,5 +18,9 @@ export const POST = route("review:comment", async ({ req, viewer }) => {
   if (!a) throw notFound();
   assertCan(viewer, a.kind === "outreach" ? "outreach:approve" : a.kind === "publish" ? "publish:approve" : "review:approve");
   await closeApprovals(viewer.orgId, a.targetType, a.targetId, b.approve ? "approved" : "rejected", viewer.userId, b.note);
+  if (a.targetType === "mission_task") {
+    const { resumeAfterDecision } = await import("@/lib/agents/team");
+    await resumeAfterDecision(viewer.orgId, a.targetId, Boolean(b.approve), b.note ?? null);
+  }
   await audit({ orgId: viewer.orgId, actorUserId: viewer.userId, action: `approval.${b.approve ? "approved" : "rejected"}`, targetType: "approval", targetId: a.id, data: { kind: a.kind } });
 });

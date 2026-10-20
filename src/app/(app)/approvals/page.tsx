@@ -14,7 +14,7 @@ import { timeAgo } from "@/lib/cn";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Approvals" };
 
-const KIND_LABEL: Record<string, string> = { plan: "Execution plan", step: "Production gate", character_change: "Character change", canon_change: "Canon change", spend: "Budget", outreach: "Partner outreach", publish: "Publishing", asset: "Asset" };
+const KIND_LABEL: Record<string, string> = { plan: "Execution plan", step: "Production gate", character_change: "Character change", canon_change: "Canon change", spend: "Budget", outreach: "Partner outreach", publish: "Publishing", asset: "Asset", mission: "Agent team question" };
 
 export default async function Approvals() {
   const viewer = await requireViewer();
@@ -55,6 +55,7 @@ export default async function Approvals() {
                       {a.kind === "character_change" && <><Link href={`/characters/${(a.payload as Record<string, string>).characterId}?tab=version%20history`} className="link text-sm">Compare →</Link>{canCanon && <><Action endpoint={`/api/character-versions/${a.targetId}/approve`} variant="ok" size="sm">Approve change</Action><Action endpoint={`/api/character-versions/${a.targetId}/reject`} variant="danger" size="sm" prompt="Why?" promptField="note">Reject</Action></>}</>}
                       {a.kind === "canon_change" && <><Link href={`/canon?record=${a.targetId}#${a.targetId}`} className="link text-sm">Compare with canon →</Link>{canCanon && <><Action endpoint={`/api/canon/${a.targetId}/approve`} variant="ok" size="sm">Approve as canon</Action><Action endpoint={`/api/canon/${a.targetId}/reject`} variant="danger" size="sm" prompt="Why?" promptField="note">Reject</Action></>}</>}
                       {a.kind === "spend" && can(viewer.role, "budget:approve") && <><Link href={`/productions/${prodId}`} className="link text-sm">Production →</Link><Action endpoint={`/api/productions/${prodId}/budget`} variant="ok" size="sm" prompt="New production budget in USD:">Raise budget</Action></>}
+                      {a.kind === "mission" && <><Link href={`/missions/${(a.payload as Record<string, string>).missionId}`} className="link text-sm">Open mission →</Link>{canApprove && <><Action endpoint="/api/approvals" body={{ action: "decide", id: a.id, approve: true }} variant="ok" size="sm" prompt="Optional note for the agent:" promptField="note">Approve</Action><Action endpoint="/api/approvals" body={{ action: "decide", id: a.id, approve: false }} variant="danger" size="sm" prompt="Why? The agent will read this." promptField="note">Decline</Action></>}</>}
                       {(a.kind === "outreach" || a.kind === "publish") && can(viewer.role, a.kind === "outreach" ? "outreach:approve" : "publish:approve") && <><Action endpoint="/api/approvals" body={{ action: "decide", id: a.id, approve: true }} variant="ok" size="sm" confirm="Record permission? The system will not contact anyone – your team does.">Approve</Action><Action endpoint="/api/approvals" body={{ action: "decide", id: a.id, approve: false }} variant="danger" size="sm">Decline</Action></>}
                     </div>
                   </div>

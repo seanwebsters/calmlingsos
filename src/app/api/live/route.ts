@@ -17,6 +17,11 @@ export async function GET(req: Request) {
       const [r] = await db.execute(sql`select (select max(updated_at) from production_steps where production_id = ${id})::text as s, (select updated_at from productions where id = ${id} and org_id = ${viewer.orgId})::text as p, (select count(*) from generated_assets where production_id = ${id})::text as a, (select max(updated_at) from generated_assets where production_id = ${id})::text as u`).then((x) => (x as unknown as { rows: Record<string, string>[] }).rows);
       return JSON.stringify(r);
     }
+    if (scope.startsWith("mission:")) {
+      const id = scope.slice(8);
+      const [r] = await db.execute(sql`select (select updated_at from missions where id = ${id} and org_id = ${viewer.orgId})::text as m, (select max(updated_at) from mission_tasks where mission_id = ${id} and org_id = ${viewer.orgId})::text as t, (select count(*) from mission_tasks where mission_id = ${id})::text as n`).then((x) => (x as unknown as { rows: Record<string, string>[] }).rows);
+      return JSON.stringify(r);
+    }
     if (scope.startsWith("reference:")) {
       const [r] = await db.select({ u: schema.referenceAssets.updatedAt, s: schema.referenceAssets.analysisStatus }).from(schema.referenceAssets).where(and(eq(schema.referenceAssets.id, scope.slice(10)), eq(schema.referenceAssets.orgId, viewer.orgId)));
       return JSON.stringify(r ?? null);

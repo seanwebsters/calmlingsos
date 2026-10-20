@@ -4,6 +4,8 @@ import { requireViewer } from "@/lib/auth/session";
 import { missionControl, suggestions } from "@/lib/dashboard";
 import { deploymentWarnings } from "@/lib/env";
 import { AGENT_BY_KEY } from "@/lib/agents/definitions";
+import { desc, eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 import { CommandBar } from "@/components/client/command-bar";
 import { LiveRefresh } from "@/components/client/live";
 import { Badge, Card, Empty, Notice, Placeholder, Progress, SectionTitle, Stat, Status } from "@/components/ui";
@@ -16,6 +18,8 @@ export default async function Mission() {
   const viewer = await requireViewer();
   const d = await missionControl(viewer.orgId);
   const ideas = suggestions(d);
+  const db = await getDb();
+  const missions = await db.select({ id: schema.missions.id, goal: schema.missions.goal, status: schema.missions.status, spentCents: schema.missions.spentCents, updatedAt: schema.missions.updatedAt }).from(schema.missions).where(eq(schema.missions.orgId, viewer.orgId)).orderBy(desc(schema.missions.updatedAt)).limit(3);
   const warnings = deploymentWarnings();
   const hour = new Date().getHours();
   return (
@@ -134,6 +138,22 @@ export default async function Mission() {
       <div className="grid gap-6 xl:grid-cols-3">
         <Card>
           <SectionTitle title="Agent activity" action={<Link href="/agents" className="link text-sm">HQ →</Link>} />
+          {missions.length > 0 && (
+            <ul className="mb-4 space-y-2 border-b border-white/[0.06] pb-4">
+              {missions.map((m) => (
+                <li key={m.id}>
+                  <Link href={`/missions/${m.id}`} className="flex items-start gap-3 text-sm hover:text-white">
+                    <Sparkles className="mt-0.5 size-4 shrink-0 text-calm-300" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-mist-100">Team: {m.goal}</div>
+                      <div className="truncate text-xs text-mist-500">{timeAgo(m.updatedAt)} · {usd(m.spentCents)}</div>
+                    </div>
+                    <Status value={m.status} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
           {d.runs.length === 0 ? <p className="text-sm text-mist-400">No agent runs yet.</p> : (
             <ul className="space-y-2.5">
               {d.runs.map((r) => (

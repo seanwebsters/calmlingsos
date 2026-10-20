@@ -2,6 +2,7 @@ export const CAPABILITIES = [
   "text",
   "vision",
   "structured",
+  "tool_use",
   "search",
   "image_generation",
   "image_edit",
@@ -18,6 +19,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   text: "Text & reasoning",
   vision: "Image understanding",
   structured: "Structured output",
+  tool_use: "Agent tool use",
   search: "Web search",
   image_generation: "Image generation",
   image_edit: "Image editing / reference-guided",
@@ -137,6 +139,39 @@ export interface EmbeddingResult {
   costCents: number;
 }
 
+export interface ToolSpec {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+/** One turn of a tool-using agent loop. `messages` are in the provider's native format. */
+export interface AgentTurnRequest {
+  system: string;
+  context?: string;
+  messages: unknown[];
+  tools: ToolSpec[];
+  maxTokens?: number;
+  effort?: "low" | "medium" | "high";
+}
+
+export interface AgentTurnResult {
+  /** Native messages to append to the history (the assistant turn), unchanged. */
+  append: unknown[];
+  text: string;
+  toolCalls: { id: string; name: string; input: Record<string, unknown> }[];
+  done: boolean;
+  model: string;
+  units: Record<string, number>;
+  costCents: number;
+}
+
+export interface ToolResult {
+  id: string;
+  content: string;
+  isError: boolean;
+}
+
 export interface ConnectionTest {
   ok: boolean;
   detail: string;
@@ -155,4 +190,8 @@ export interface ProviderAdapter {
   music?(apiKey: string, model: string, req: AudioGenRequest): Promise<MediaResult>;
   soundEffect?(apiKey: string, model: string, req: AudioGenRequest): Promise<MediaResult>;
   embed?(apiKey: string, model: string, req: EmbeddingRequest): Promise<EmbeddingResult>;
+  agentTurn?(apiKey: string, model: string, req: AgentTurnRequest): Promise<AgentTurnResult>;
+  /** Native messages carrying tool results back to the model. */
+  toolResults?(results: ToolResult[]): unknown[];
+  userMessage?(text: string): unknown;
 }

@@ -57,9 +57,23 @@ The pack is rendered as a stable, cacheable system context. Its ids are stored o
 - Costs are recomputed from `cost_records`, which include failed attempts.
 - Human actions: approve plan/start, pause, resume, stop, retry, re-run (with notes; downstream steps reset, locked items kept), skip, select, approve, request changes (re-runs the reviewed step), edit output (schema-validated), raise budget.
 
+## Agent team (missions)
+
+- `startMission` creates a `missions` row and a root `mission_tasks` row for the Studio Director. Each task runs as an `agent_task` job.
+- `runAgentTask` claims the task (queued → running) and loops provider turns through the gateway's `tool_use` route. It appends native provider messages unchanged, so a task can resume exactly.
+- Tools live in `src/lib/agents/tools.ts` and reuse the same services and permission checks as the UI:
+  - Everyone: `list_characters`, `search_canon`, `list_references`, `write_document`, `request_approval`, `get_performance_data`.
+  - Agents with the right permission: `generate_image` (approved references only), `propose_canon` (draft only).
+  - Leads (executive department, depth < 2): `delegate`, `await_reports`, `propose_production`.
+- A task suspends for two reasons:
+  - `waiting_team`: waiting on delegated work. The last child to finish re-queues the parent with tool results in call order.
+  - `waiting_approval`: waiting on a human. Deciding the approval calls `resumeAfterDecision`.
+- Limits: depth 2, 30 tasks and 16 turns per task per mission. The mission budget is checked against `cost_records.mission_id` before every turn, and an overrun blocks the mission.
+- `officeState` derives each agent's status (working, queued, waiting, blocked, idle) and recent hand-offs from tasks and running production steps. The 3D office polls it from `/api/office`.
+
 ## Providers
 
-Each model declares its capabilities: `text, vision, structured, search, image_generation, image_edit, video_generation, speech, transcription, music, sound_effects, embeddings`. The router picks among connected, enabled providers in preference order, scoring for quality preference, reference support and transparency.
+Each model declares its capabilities: `text, vision, structured, search, tool_use, image_generation, image_edit, video_generation, speech, transcription, music, sound_effects, embeddings`. The router picks among connected, enabled providers in preference order, scoring for quality preference, reference support and transparency.
 
 - A manual override is honoured or fails with the reason; the router never silently swaps providers.
 - Calls that send proprietary files only route to providers flagged *allow proprietary references*.

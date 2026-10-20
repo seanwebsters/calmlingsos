@@ -6,6 +6,10 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const { runStepJob } = await import("@/lib/workflows/runtime");
     await runStepJob(job.payload as { productionId: string; stepId: string });
   },
+  agent_task: async (job) => {
+    const { runAgentTask } = await import("@/lib/agents/team");
+    await runAgentTask(String(job.payload.taskId));
+  },
   analyze_reference: async (job) => {
     const { analyzeReference } = await import("@/lib/brain/analysis");
     await analyzeReference(job.payload as { assetId: string; versionId: string });

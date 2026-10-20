@@ -19,6 +19,8 @@ import { IntegrationRequiredError, ProviderError } from "@/lib/errors";
 import { audit } from "@/lib/audit";
 import { DEFAULT_ROUTE_ORDER, PROVIDER_BY_KEY, PROVIDERS } from "./definitions";
 import type {
+  AgentTurnRequest,
+  AgentTurnResult,
   AudioGenRequest,
   Capability,
   EmbeddingRequest,
@@ -53,6 +55,7 @@ const METHOD: Record<Capability, keyof ProviderAdapter> = {
   text: "text",
   vision: "text",
   structured: "text",
+  tool_use: "agentTurn",
   search: "text",
   image_generation: "image",
   image_edit: "image",
@@ -294,6 +297,7 @@ export interface CallContext {
   productionId?: string | null;
   stepId?: string | null;
   runId?: string | null;
+  missionId?: string | null;
 }
 
 async function meter<T extends { model: string; units: Record<string, number>; costCents: number }>(
@@ -313,6 +317,7 @@ async function meter<T extends { model: string; units: Record<string, number>; c
       productionId: ctx.productionId ?? null,
       stepId: ctx.stepId ?? null,
       runId: ctx.runId ?? null,
+      missionId: ctx.missionId ?? null,
       provider: route.provider,
       model: out.model,
       capability,
@@ -377,6 +382,17 @@ export async function generateSoundEffect(ctx: CallContext, req: AudioGenRequest
 export async function embed(ctx: CallContext, req: EmbeddingRequest, opts: RouteOptions = {}): Promise<EmbeddingResult & { provider: string }> {
   const route = await resolveRoute(ctx.orgId, "embeddings", opts);
   return meter(ctx, "embeddings", route, { count: req.texts.length }, () => route.adapter.embed!(route.apiKey, route.model, req));
+}
+
+/** One turn of a tool-using agent. Pass `provider` to stay on the provider the conversation started with. */
+export async function agentTurn(ctx: CallContext, req: AgentTurnRequest, opts: RouteOptions = {}): Promise<AgentTurnResult & { provider: string; adapter: ProviderAdapter }> {
+  const route = await resolveRoute(ctx.orgId, "tool_use", opts);
+  const out = await meter(ctx, "tool_use", route, { messages: req.messages.length, tools: req.tools.length }, () => route.adapter.agentTurn!(route.apiKey, route.model, req));
+  return { ...out, adapter: route.adapter };
+}
+
+export function adapterOf(provider: string): ProviderAdapter | undefined {
+  return adapterFor(provider);
 }
 
 /** Can this capability run right now? Used for UI badges and plan estimates. */

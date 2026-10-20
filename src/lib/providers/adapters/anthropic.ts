@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { ProviderError } from "@/lib/errors";
-import type { ProviderAdapter, TextRequest, TextResult } from "../types";
+import type { AgentTurnRequest, AgentTurnResult, ProviderAdapter, TextRequest, TextResult, ToolResult } from "../types";
 
 /** USD per million tokens [input, output]. Cache reads 0.1×, writes 1.25× input. */
 const PRICES: Record<string, [number, number]> = {
@@ -90,6 +90,50 @@ async function text(apiKey: string, model: string, req: TextRequest): Promise<Te
   return { text: out.trim(), model: servedModel, units, costCents: Math.round(usd * 10000) / 100 };
 }
 
+function costOf(model: string, u: { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number; web_searches?: number }) {
+  const [inP, outP] = PRICES[model] ?? [5, 25];
+  const usd = (u.input_tokens * inP + u.output_tokens * outP + u.cache_read_tokens * inP * 0.1 + u.cache_write_tokens * inP * 1.25) / 1e6 + (u.web_searches ?? 0) * 0.01;
+  return Math.round(usd * 10000) / 100;
+}
+
+/**
+ * One turn of a tool-using agent. The assistant content (including thinking
+ * blocks) is returned unchanged so the history stays append-only.
+ */
+async function agentTurn(apiKey: string, model: string, req: AgentTurnRequest): Promise<AgentTurnResult> {
+  const system: Anthropic.Beta.Messages.BetaTextBlockParam[] = [{ type: "text", text: req.system }];
+  if (req.context) system.push({ type: "text", text: req.context, cache_control: { type: "ephemeral" } });
+  try {
+    const stream = client(apiKey).beta.messages.stream({
+      model,
+      max_tokens: req.maxTokens ?? 16000,
+      system,
+      messages: req.messages as Anthropic.Beta.Messages.BetaMessageParam[],
+      tools: req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Beta.Messages.BetaTool.InputSchema })),
+      output_config: { effort: req.effort ?? "medium" },
+      ...(supportsServerFallback(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
+    } as unknown as Anthropic.Beta.Messages.MessageCreateParamsStreaming);
+    const msg = await stream.finalMessage();
+    if (msg.stop_reason === "refusal") throw new ProviderError("anthropic", "The model declined this task. Rephrase the goal and retry.", false);
+    const u = msg.usage as unknown as Record<string, number | null>;
+    const units = { input_tokens: Number(u.input_tokens ?? 0), output_tokens: Number(u.output_tokens ?? 0), cache_read_tokens: Number(u.cache_read_input_tokens ?? 0), cache_write_tokens: Number(u.cache_creation_input_tokens ?? 0) };
+    const toolCalls = msg.content.flatMap((b) => (b.type === "tool_use" ? [{ id: b.id, name: b.name, input: (b.input ?? {}) as Record<string, unknown> }] : []));
+    const text = msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
+    if (msg.stop_reason === "max_tokens" && !toolCalls.length) throw new ProviderError("anthropic", "The agent ran out of output room.", true);
+    return {
+      append: [{ role: "assistant", content: msg.content }],
+      text,
+      toolCalls,
+      done: toolCalls.length === 0 && msg.stop_reason !== "pause_turn",
+      model: msg.model,
+      units,
+      costCents: costOf(msg.model, units),
+    };
+  } catch (err) {
+    mapError(err);
+  }
+}
+
 export const anthropicAdapter: ProviderAdapter = {
   key: "anthropic",
   async test(apiKey) {
@@ -107,4 +151,7 @@ export const anthropicAdapter: ProviderAdapter = {
     }
   },
   text,
+  agentTurn,
+  userMessage: (text: string) => ({ role: "user", content: text }),
+  toolResults: (results: ToolResult[]) => [{ role: "user", content: results.map((r) => ({ type: "tool_result", tool_use_id: r.id, content: r.content, is_error: r.isError })) }],
 };

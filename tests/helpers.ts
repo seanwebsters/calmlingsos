@@ -123,17 +123,34 @@ export interface FakeLog {
   images: { prompt: string; refs: string[] }[];
   videos: number;
   speech: number;
+  agentTurns: { lead: boolean; turn: number; context: string; tools: string[] }[];
 }
 
 export async function installFakes(opts: { failImagesTimes?: number } = {}) {
   const { setTestAdapters } = await import("@/lib/providers/gateway");
-  const log: FakeLog = { text: [], images: [], videos: 0, speech: 0 };
+  const log: FakeLog = { text: [], images: [], videos: 0, speech: 0, agentTurns: [] };
   let imageFailures = opts.failImagesTimes ?? 0;
   const { ProviderError } = await import("@/lib/errors");
   setTestAdapters({
     anthropic: {
       key: "anthropic",
       test: async () => ({ ok: true, detail: "test" }),
+      agentTurn: async (_k, model, req) => {
+        const turn = (req.messages as { role: string }[]).filter((m) => m.role === "assistant").length;
+        const lead = req.tools.some((t) => t.name === "delegate");
+        log.agentTurns.push({ lead, turn, context: req.context ?? "", tools: req.tools.map((t) => t.name) });
+        const call = (name: string, input: Record<string, unknown>) => ({ type: "tool_use", id: `tu_${name}_${turn}_${Math.random().toString(36).slice(2, 7)}`, name, input });
+        let content: Record<string, unknown>[];
+        if (lead && turn === 0) content = [{ type: "text", text: "Planning the mission." }, call("search_canon", { characters: ["Blue"], topic: "rain" }), call("delegate", { agent: "comedy_writer", title: "Concepts", instructions: "Write 3 concepts" }), call("delegate", { agent: "short_form_scriptwriter", title: "Script", instructions: "Write a script" }), call("await_reports", {})];
+        else if (lead && turn === 1) content = [call("request_approval", { question: "Go with concept 1?", context: "Reports are in." })];
+        else if (lead) content = [{ type: "text", text: "Mission complete: two documents ready for review." }];
+        else if (turn === 0) content = [call("write_document", { title: "Draft from specialist", markdown: "# Draft", characters: ["Blue"] })];
+        else content = [{ type: "text", text: "Done – document saved." }];
+        const toolCalls = content.filter((b) => b.type === "tool_use").map((b) => ({ id: String(b.id), name: String(b.name), input: b.input as Record<string, unknown> }));
+        return { append: [{ role: "assistant", content }], text: content.filter((b) => b.type === "text").map((b) => String(b.text)).join(""), toolCalls, done: toolCalls.length === 0, model, units: { input_tokens: 10, output_tokens: 10 }, costCents: 0.2 };
+      },
+      userMessage: (text: string) => ({ role: "user", content: text }),
+      toolResults: (results) => [{ role: "user", content: results.map((r) => ({ type: "tool_result", tool_use_id: r.id, content: r.content, is_error: r.isError })) }],
       text: async (_k, model, req) => {
         log.text.push({ prompt: req.prompt, images: req.images?.length ?? 0, context: req.context });
         const data = req.jsonSchema ? fakeFor(req.jsonSchema, `${req.prompt}\n${req.context ?? ""}`) : "ok";

@@ -888,6 +888,8 @@ export const costRecords = pgTable(
     productionId: text("production_id"),
     stepId: text("step_id"),
     runId: text("run_id"),
+    /** Autonomous agent-team mission the spend belongs to. */
+    missionId: text("mission_id"),
     provider: text("provider").notNull(),
     model: text("model"),
     capability: text("capability").notNull(),
@@ -946,3 +948,72 @@ export const storedFiles = pgTable("stored_files", {
   data: bytea("data").notNull(),
   createdAt: created(),
 });
+
+/* ------------------------------------------------------------------ */
+/* Autonomous agent team                                               */
+/* ------------------------------------------------------------------ */
+
+/** A goal handed to the agent team. The Studio Director plans and delegates. */
+export const missions = pgTable(
+  "missions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull().references(() => organisations.id, { onDelete: "cascade" }),
+    goal: text("goal").notNull(),
+    /** running | awaiting_approval | paused | completed | failed | cancelled | blocked */
+    status: text("status").notNull().default("running"),
+    characterIds: json<string[]>("character_ids").notNull().default([]),
+    budgetCents: integer("budget_cents").notNull(),
+    spentCents: doublePrecision("spent_cents").notNull().default(0),
+    report: text("report"),
+    error: text("error"),
+    createdBy: text("created_by"),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index("missions_org").on(t.orgId, t.createdAt)],
+);
+
+export interface TranscriptEntry {
+  at: string;
+  /** note: what the agent says it's doing · tool: a tool call · result: tool output · handoff: delegation · human: approval decision */
+  kind: "note" | "tool" | "result" | "handoff" | "human" | "error";
+  text: string;
+  tool?: string;
+  data?: unknown;
+}
+
+/** One agent's piece of a mission – its own tool-using loop. */
+export const missionTasks = pgTable(
+  "mission_tasks",
+  {
+    id: text("id").primaryKey(),
+    missionId: text("mission_id").notNull().references(() => missions.id, { onDelete: "cascade" }),
+    orgId: text("org_id").notNull(),
+    parentTaskId: text("parent_task_id"),
+    agentKey: text("agent_key").notNull(),
+    title: text("title").notNull(),
+    instructions: text("instructions").notNull(),
+    depth: integer("depth").notNull().default(0),
+    /** queued | running | waiting_team | waiting_approval | done | failed | cancelled | blocked */
+    status: text("status").notNull().default("queued"),
+    /** Provider message history (append-only) so a waiting task can resume exactly. */
+    messages: json<unknown[]>("messages").notNull().default([]),
+    /** Tool call waiting on teammates or a human decision. */
+    pendingToolUseId: text("pending_tool_use_id"),
+    pendingApprovalId: text("pending_approval_id"),
+    /** Results of other tool calls from the same turn, held until the task resumes. */
+    pendingResults: json<{ id: string; content: string; isError: boolean }[]>("pending_results").notNull().default([]),
+    /** Provider the conversation is bound to (message formats differ by provider). */
+    provider: text("provider"),
+    transcript: json<TranscriptEntry[]>("transcript").notNull().default([]),
+    report: text("report"),
+    outputs: json<{ type: string; id: string; title: string }[]>("outputs").notNull().default([]),
+    turns: integer("turns").notNull().default(0),
+    costCents: doublePrecision("cost_cents").notNull().default(0),
+    error: text("error"),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index("mission_tasks_mission").on(t.missionId), index("mission_tasks_status").on(t.orgId, t.status)],
+);

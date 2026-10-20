@@ -7,6 +7,10 @@ import { AGENTS, DEPARTMENT_LABELS, AGENT_BY_KEY } from "@/lib/agents/definition
 import { listTemplates } from "@/lib/workflows/registry";
 import { STEP_TYPES } from "@/lib/workflows/templates";
 import { WorkflowBuilder } from "@/components/agents/workflow-builder";
+import { OfficeView } from "@/components/office/office-view";
+import { officeState } from "@/lib/agents/office";
+import { listCharacters } from "@/lib/brain/characters";
+import { getOrgSettings } from "@/lib/org";
 import { LiveRefresh } from "@/components/client/live";
 import { Badge, Card, PageHeader, SectionTitle, Status } from "@/components/ui";
 import { cn, timeAgo, usd } from "@/lib/cn";
@@ -17,20 +21,22 @@ export const metadata = { title: "Agent Headquarters" };
 export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ tab?: string; key?: string }> }) {
   const viewer = await requireViewer();
   const sp = await searchParams;
-  const tab = sp.tab ?? "agents";
+  const tab = sp.tab ?? "office";
   const db = await getDb();
   const stats = await db.select({ key: schema.agentRuns.agentKey, runs: sql<number>`count(*)::int`, cost: sql<number>`coalesce(sum(${schema.agentRuns.costCents}),0)::float`, failed: sql<number>`count(*) filter (where ${schema.agentRuns.status} = 'failed')::int`, last: sql<Date>`max(${schema.agentRuns.startedAt})` }).from(schema.agentRuns).where(eq(schema.agentRuns.orgId, viewer.orgId)).groupBy(schema.agentRuns.agentKey);
   const overrides = await db.select().from(schema.agents).where(eq(schema.agents.orgId, viewer.orgId));
   const running = await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.orgId, viewer.orgId)).orderBy(desc(schema.agentRuns.startedAt)).limit(60);
   const templates = await listTemplates(viewer.orgId);
   const tpl = templates.find((t) => t.key === sp.key) ?? templates[0];
+  const office = tab === "office" ? { initial: await officeState(viewer.orgId), characters: (await listCharacters(viewer.orgId)).map((c) => ({ id: c.id, name: c.name, approved: Boolean(c.approvedVersionId) })), defaultBudgetCents: (await getOrgSettings(viewer.orgId)).defaultProductionBudgetCents } : null;
   return (
     <div>
       <LiveRefresh scope="org" />
-      <PageHeader eyebrow="12 · Agent Headquarters" title="The specialist team" sub="45 agents collaborating through typed tasks and shared artifacts – never open-ended chat loops. None can publish, spend beyond budget, contact partners or alter canon without a human." />
+      <PageHeader eyebrow="12 · Agent Headquarters" title="The specialist team" sub="45 agents working as one studio. Hand the team a goal: the Studio Director plans it, delegates to specialists who work in parallel with real studio tools, and brings the results back for your approval. None can publish, spend beyond budget, contact partners or alter canon without you." />
       <nav className="mb-6 flex gap-1 border-b border-white/[0.06]">
-        {["agents", "runs", "workflows"].map((t) => <Link key={t} href={`/agents?tab=${t}`} className={cn("-mb-px border-b-2 px-3 py-2 text-[12px] uppercase tracking-[0.1em]", tab === t ? "border-calm-300 text-white" : "border-transparent text-mist-400")}>{t === "workflows" ? "Pipelines & workflow builder" : t === "runs" ? "Run history" : "Agents"}</Link>)}
+        {["office", "agents", "runs", "workflows"].map((t) => <Link key={t} href={`/agents?tab=${t}`} className={cn("-mb-px border-b-2 px-3 py-2 text-[12px] uppercase tracking-[0.1em]", tab === t ? "border-calm-300 text-white" : "border-transparent text-mist-400")}>{t === "workflows" ? "Pipelines & workflow builder" : t === "runs" ? "Run history" : t === "office" ? "The office" : "Agents"}</Link>)}
       </nav>
+      {office && <OfficeView {...office} canStart={can(viewer.role, "production:create")} />}
       {tab === "agents" && (
         <div className="space-y-8">
           {(Object.keys(DEPARTMENT_LABELS) as (keyof typeof DEPARTMENT_LABELS)[]).map((d) => (

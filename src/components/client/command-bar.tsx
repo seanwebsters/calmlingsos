@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowUp, Loader2, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles, Trash2, Users, X } from "lucide-react";
 import { cn, usd } from "@/lib/cn";
 import { api, ApiError } from "./api";
 import { ErrorNote } from "./action";
@@ -44,6 +44,20 @@ export function CommandBar({ characters, big = false }: { characters: { id: stri
   const [error, setError] = useState<Error | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [creating, setCreating] = useState(false);
+
+  /** Hands the instruction to the autonomous agent team instead of planning productions up front. */
+  async function handToTeam() {
+    if (!command.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { id } = await api<{ id: string }>("/api/missions", { body: { goal: command, characterIds: [] } });
+      router.push(`/missions/${id}`);
+    } catch (e) {
+      setError(e as Error);
+      setBusy(false);
+    }
+  }
 
   async function submit(text: string) {
     if (!text.trim()) return;
@@ -111,6 +125,11 @@ export function CommandBar({ characters, big = false }: { characters: { id: stri
           </button>
         </div>
       </form>
+      {command.trim() && !plan && !busy && (
+        <button type="button" onClick={handToTeam} className="mt-2 inline-flex items-center gap-1.5 text-xs text-mist-300 hover:text-white">
+          <Users className="size-3.5" /> Hand to the agent team instead – the Studio Director delegates and the office works it through
+        </button>
+      )}
       {big && !plan && (
         <div className="mt-3 flex flex-wrap gap-2">
           {EXAMPLES.map((e) => (

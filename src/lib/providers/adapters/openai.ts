@@ -1,6 +1,6 @@
 import "server-only";
 import { ProviderError } from "@/lib/errors";
-import type { ImageRequest, ProviderAdapter } from "../types";
+import type { ImageRequest, ProviderAdapter, ToolResult } from "../types";
 import { failFrom, fetchBinary, fetchJson } from "./http";
 
 const BASE = "https://api.openai.com/v1";
@@ -59,6 +59,44 @@ export const openaiAdapter: ProviderAdapter = {
     const costCents = Math.round(((units.input_tokens * 1.25 + units.output_tokens * 10) / 1e6) * 10000) / 100;
     return { text: (choice?.message.content ?? "").trim(), model: json.model, units, costCents };
   },
+
+  async agentTurn(apiKey, model, req) {
+    const json = await fetchJson<{ model: string; choices: { message: { content: string | null; tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[]; refusal?: string | null }; finish_reason: string }[]; usage?: { prompt_tokens: number; completion_tokens: number } }>("openai", `${BASE}/chat/completions`, {
+      method: "POST",
+      headers: { ...auth(apiKey), "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: [req.system, req.context].filter(Boolean).join("\n\n") }, ...req.messages],
+        tools: req.tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.inputSchema } })),
+        max_completion_tokens: req.maxTokens ?? 16000,
+      }),
+      timeoutMs: 300_000,
+    });
+    const m = json.choices[0]?.message;
+    if (!m) throw new ProviderError("openai", "OpenAI returned no message.", true);
+    if (m.refusal) throw new ProviderError("openai", `The model declined: ${m.refusal}`, false);
+    const toolCalls = (m.tool_calls ?? []).map((c) => {
+      let input: Record<string, unknown> = {};
+      try {
+        input = JSON.parse(c.function.arguments || "{}");
+      } catch {
+        input = {};
+      }
+      return { id: c.id, name: c.function.name, input };
+    });
+    const units = { input_tokens: json.usage?.prompt_tokens ?? 0, output_tokens: json.usage?.completion_tokens ?? 0 };
+    return {
+      append: [{ role: "assistant", content: m.content ?? "", ...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}) }],
+      text: (m.content ?? "").trim(),
+      toolCalls,
+      done: toolCalls.length === 0,
+      model: json.model,
+      units,
+      costCents: Math.round(((units.input_tokens * 1.25 + units.output_tokens * 10) / 1e6) * 10000) / 100,
+    };
+  },
+  userMessage: (text: string) => ({ role: "user", content: text }),
+  toolResults: (results: ToolResult[]) => results.map((r) => ({ role: "tool", tool_call_id: r.id, content: r.isError ? `ERROR: ${r.content}` : r.content })),
 
   async image(apiKey, model, req) {
     const size = SIZES[req.aspectRatio] ?? "1024x1024";
