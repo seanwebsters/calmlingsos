@@ -28,6 +28,9 @@ export const settingsSchema = z.object({
   retentionDays: z.number().int().min(0).max(3650),
   maxUploadMb: z.number().int().min(1).max(2048),
   requirePlanApproval: z.boolean(),
+  officeSkin: z
+    .object({ theme: z.string().max(40), prompt: z.string().max(1000).nullable(), floorKey: z.string().nullable(), wallKey: z.string().nullable(), rugKey: z.string().nullable(), provider: z.string().nullable(), model: z.string().nullable(), generatedAt: z.string().nullable() })
+    .optional(),
 });
 
 export async function updateOrgSettings(orgId: string, userId: string, patch: Partial<OrgSettings>) {

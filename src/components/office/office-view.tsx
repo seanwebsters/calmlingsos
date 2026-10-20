@@ -4,11 +4,13 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Paintbrush, Send } from "lucide-react";
 import { api } from "@/components/client/api";
 import { ErrorNote } from "@/components/client/action";
 import { cn, usd } from "@/lib/cn";
 import { DEPT_COLORS, DEPT_NAMES, type Handoff, type OfficeAgent } from "./office-scene";
+import { DEFAULT_OFFICE_THEME, OFFICE_THEMES, type OfficeSkinView } from "./themes";
+import { SkinPanel } from "./skin-panel";
 
 const OfficeScene = dynamic(() => import("./office-scene"), { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-sm text-mist-500">Opening the office…</div> });
 
@@ -19,7 +21,7 @@ interface OfficeData {
 }
 
 const STATUS_LABEL: Record<string, string> = { working: "Working", queued: "Up next", waiting: "Waiting", blocked: "Blocked", idle: "Available" };
-const STATUS_DOT: Record<string, string> = { working: "bg-ok", queued: "bg-calm-400", waiting: "bg-warn", blocked: "bg-bad", idle: "bg-mist-600" };
+const STATUS_DOT: Record<string, string> = { working: "bg-ok", queued: "bg-calm-400", waiting: "bg-warn", blocked: "bg-bad", idle: "bg-[#9aa3b5]" };
 
 function hasWebGL() {
   try {
@@ -30,7 +32,7 @@ function hasWebGL() {
   }
 }
 
-export function OfficeView({ initial, characters, defaultBudgetCents, canStart }: { initial: OfficeData; characters: { id: string; name: string; approved: boolean }[]; defaultBudgetCents: number; canStart: boolean }) {
+export function OfficeView({ initial, characters, defaultBudgetCents, canStart, skin: initialSkin, canSkin }: { initial: OfficeData; characters: { id: string; name: string; approved: boolean }[]; defaultBudgetCents: number; canStart: boolean; skin: OfficeSkinView; canSkin: boolean }) {
   const router = useRouter();
   const [data, setData] = useState<OfficeData>(initial);
   const [selected, setSelected] = useState<string | null>(null);
@@ -40,6 +42,9 @@ export function OfficeView({ initial, characters, defaultBudgetCents, canStart }
   const [budget, setBudget] = useState((defaultBudgetCents / 100).toFixed(2));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [skin, setSkin] = useState(initialSkin);
+  const [customising, setCustomising] = useState(false);
+  const theme = OFFICE_THEMES[skin.theme] ?? OFFICE_THEMES[DEFAULT_OFFICE_THEME];
 
   useEffect(() => setWebgl(hasWebGL()), []);
   useEffect(() => {
@@ -94,16 +99,23 @@ export function OfficeView({ initial, characters, defaultBudgetCents, canStart }
         </div>
       )}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="relative h-[640px] overflow-hidden rounded-2xl border border-white/[0.06] bg-ink-950">
+        <div className="relative h-[640px] overflow-hidden rounded-2xl border border-white/[0.06]" style={{ background: theme.background }}>
           {webgl === false ? (
             <FlatOffice agents={data.agents} onSelect={setSelected} selected={selected} />
           ) : webgl ? (
-            <OfficeScene agents={data.agents} handoffs={data.handoffs} selected={selected} onSelect={setSelected} />
+            <OfficeScene agents={data.agents} handoffs={data.handoffs} selected={selected} onSelect={setSelected} skin={skin} />
           ) : null}
-          <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-3 rounded-xl bg-ink-950/70 px-3 py-2 text-[11px] text-mist-300 backdrop-blur">
+          <div className={cn("pointer-events-none absolute left-4 top-4 flex flex-wrap gap-3 rounded-xl px-3 py-2 text-[11px] shadow-sm backdrop-blur", theme.dark ? "bg-ink-950/70 text-mist-300" : "bg-white/80 text-slate-600")}>
             {Object.entries(STATUS_LABEL).map(([k, v]) => <span key={k} className="flex items-center gap-1.5"><span className={cn("size-2 rounded-full", STATUS_DOT[k])} />{v}</span>)}
           </div>
-          <div className="pointer-events-none absolute bottom-4 left-4 text-[11px] text-mist-500">Drag to orbit · scroll to zoom · click an agent</div>
+          <div className={cn("pointer-events-none absolute bottom-4 left-4 text-[11px]", theme.dark ? "text-mist-500" : "text-slate-500")}>Drag to orbit · scroll to zoom · click an agent</div>
+          {canSkin && webgl && (
+            <button onClick={() => setCustomising(!customising)} className={cn("absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium shadow-sm backdrop-blur", theme.dark ? "bg-ink-950/70 text-mist-100 hover:bg-ink-900" : "bg-white/85 text-slate-700 hover:bg-white")}>
+              <Paintbrush className="size-3.5" />
+              Customise office
+            </button>
+          )}
+          {customising && <SkinPanel skin={skin} onChange={setSkin} onClose={() => setCustomising(false)} />}
         </div>
         <div className="space-y-4">
           {sel ? (

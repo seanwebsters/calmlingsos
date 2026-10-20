@@ -8,6 +8,7 @@ import { listTemplates } from "@/lib/workflows/registry";
 import { STEP_TYPES } from "@/lib/workflows/templates";
 import { WorkflowBuilder } from "@/components/agents/workflow-builder";
 import { OfficeView } from "@/components/office/office-view";
+import { getOfficeSkin } from "@/lib/office-skin";
 import { officeState } from "@/lib/agents/office";
 import { listCharacters } from "@/lib/brain/characters";
 import { getOrgSettings } from "@/lib/org";
@@ -28,7 +29,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
   const running = await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.orgId, viewer.orgId)).orderBy(desc(schema.agentRuns.startedAt)).limit(60);
   const templates = await listTemplates(viewer.orgId);
   const tpl = templates.find((t) => t.key === sp.key) ?? templates[0];
-  const office = tab === "office" ? { initial: await officeState(viewer.orgId), characters: (await listCharacters(viewer.orgId)).map((c) => ({ id: c.id, name: c.name, approved: Boolean(c.approvedVersionId) })), defaultBudgetCents: (await getOrgSettings(viewer.orgId)).defaultProductionBudgetCents } : null;
+  const office = tab === "office" ? { initial: await officeState(viewer.orgId), characters: (await listCharacters(viewer.orgId)).map((c) => ({ id: c.id, name: c.name, approved: Boolean(c.approvedVersionId) })), defaultBudgetCents: (await getOrgSettings(viewer.orgId)).defaultProductionBudgetCents, skin: await getOfficeSkin(viewer.orgId) } : null;
   return (
     <div>
       <LiveRefresh scope="org" />
@@ -36,7 +37,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       <nav className="mb-6 flex gap-1 border-b border-white/[0.06]">
         {["office", "agents", "runs", "workflows"].map((t) => <Link key={t} href={`/agents?tab=${t}`} className={cn("-mb-px border-b-2 px-3 py-2 text-[12px] uppercase tracking-[0.1em]", tab === t ? "border-calm-300 text-white" : "border-transparent text-mist-400")}>{t === "workflows" ? "Pipelines & workflow builder" : t === "runs" ? "Run history" : t === "office" ? "The office" : "Agents"}</Link>)}
       </nav>
-      {office && <OfficeView {...office} canStart={can(viewer.role, "production:create")} />}
+      {office && <OfficeView {...office} canStart={can(viewer.role, "production:create")} canSkin={can(viewer.role, "agents:edit")} />}
       {tab === "agents" && (
         <div className="space-y-8">
           {(Object.keys(DEPARTMENT_LABELS) as (keyof typeof DEPARTMENT_LABELS)[]).map((d) => (

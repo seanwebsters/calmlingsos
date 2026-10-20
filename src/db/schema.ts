@@ -21,6 +21,17 @@ const json = <T>(name: string) => jsonb(name).$type<T>();
 /* Tenancy, users, auth                                                */
 /* ------------------------------------------------------------------ */
 
+export interface OfficeSkin {
+  theme: string;
+  prompt: string | null;
+  floorKey: string | null;
+  wallKey: string | null;
+  rugKey: string | null;
+  provider: string | null;
+  model: string | null;
+  generatedAt: string | null;
+}
+
 export interface OrgSettings {
   /** Hard ceiling for any single production unless a human raises it. */
   defaultProductionBudgetCents: number;
@@ -32,6 +43,8 @@ export interface OrgSettings {
   maxUploadMb: number;
   /** Require a human to approve every plan before generation starts. */
   requirePlanApproval: boolean;
+  /** Look of the 3D office: a theme preset plus optional Nano Banana textures. */
+  officeSkin?: OfficeSkin;
 }
 
 export const organisations = pgTable("organisations", {
